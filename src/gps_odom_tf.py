@@ -66,42 +66,51 @@ def calculate_tf():
     
     sampled_odom_positions = np.array(odom_positions)[sampled_indices]
     
-    rospy.loginfo(f"GPS: {gps_positions}")
-    rospy.loginfo(f"Odom: {sampled_odom_positions}")
-    
     # Open3D PointCloud 객체 생성
     gps_pcd = o3d.geometry.PointCloud()
     odom_pcd = o3d.geometry.PointCloud()
     
     gps_pcd.points = o3d.utility.Vector3dVector(gps_positions)
-    odom_pcd.points = o3d.utility.Vector3dVector(sampled_odom_positions)
-    
+    odom_pcd.points = o3d.utility.Vector3dVector(odom_positions)
+    gps_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+    odom_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
     # 초기 변환 설정
     init_transform = calculate_initial_transform()
+    rospy.loginfo(f"Init transform: \n{init_transform}")
     
     # ICP 알고리즘 적용
-    threshold = 1.0  # 포인트 매칭을 위한 거리 임계값 (예: 1미터)
+    threshold = 0.05  # 포인트 매칭을 위한 거리 임계값 (예: 0.5미터)
     icp_result = o3d.pipelines.registration.registration_icp(
         odom_pcd, gps_pcd, threshold, init_transform,
-        o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=30)
+        o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=10000)
     )
+    
     
     R = icp_result.transformation[:3, :3]
     t = icp_result.transformation[:3, 3]
+    
+    # ICP 결과를 로그로 출력
+    #rospy.loginfo(icp_result)
+    rospy.loginfo(f"ICP 결과 변환 행렬 (Rotation):\n{R}")
+    rospy.loginfo(f"ICP 결과 변환 벡터 (Translation):\n{t}")
+    rospy.loginfo(f"ICP 피트니스: {icp_result.fitness}")
+    rospy.loginfo(f"RMSE: {icp_result.inlier_rmse}")
+    # ICP 결과를 적용한 변환된 odometry 포인트 클라우드
+    odom_pcd.transform(icp_result.transformation)
+    
+    # 시각화를 위해 각각의 점군에 색상 추가
+    gps_pcd.paint_uniform_color([1, 0, 0])  # 빨간색 (GPS)
+    odom_pcd.paint_uniform_color([0, 1, 0])  # 초록색 (Odometry)
+    
+    # 두 점군 시각화
+    o3d.visualization.draw_geometries([gps_pcd, odom_pcd], window_name="ICP 결과 시각화", width=800, height=600)
     
     return (R, t), icp_result.fitness
 
 def signal_handler(sig, frame):
     rospy.loginfo("프로그램이 종료됩니다. ICP 계산을 시작합니다...")
     result = calculate_tf()
-    if result is not None:
-        (R, t), fitness = result
-        rospy.loginfo(f"계산된 변환 행렬 (Rotation):\n{R}")
-        rospy.loginfo(f"계산된 변환 벡터 (Translation):\n{t}")
-        rospy.loginfo(f"ICP 피트니스: {fitness}")
-    else:
-        rospy.logwarn("TF 계산을 위한 충분한 데이터가 없습니다.")
     sys.exit(0)
 
 def main():
