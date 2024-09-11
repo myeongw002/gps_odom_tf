@@ -64,6 +64,21 @@ def compare_point_clouds(pc1, pc2):
 
     o3d.visualization.draw_geometries([pc1, pc2], window_name="Comparison of Optimized and Odom Poses")
 
+# ICP 및 평가 수행 함수
+def icp_and_evaluate(source, target):
+    threshold = 0.02  # ICP에서 허용하는 최대 거리 (조정 가능)
+    trans_init = np.eye(4)  # 초기 변환 행렬 (단위 행렬)
+
+    
+    # 정합 후 평가 (evaluate_registration 사용)
+    print("Evaluating registration using evaluate_registration...")
+    evaluation = o3d.pipelines.registration.evaluate_registration(source, target, threshold, trans_init)
+    
+    print("Evaluation after registration:")
+    print(f"Fitness: {evaluation.fitness}")
+    print(f"Inlier RMSE: {evaluation.inlier_rmse}")
+
+
 # 메인 함수
 if __name__ == "__main__":
     data_folder = input("데이터 폴더의 경로를 입력하세요: ").strip().replace("'", "")
@@ -76,3 +91,7 @@ if __name__ == "__main__":
 
     # 두 결과 비교 시각화
     compare_point_clouds(optimized_pcd, odom_pcd)
+
+    # ICP 평가 및 결과 평가
+    icp_and_evaluate(odom_pcd, optimized_pcd)
+
