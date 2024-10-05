@@ -54,9 +54,9 @@ def read_file_and_publish():
     marker.pose.orientation.w = 1.0
     
     # Set marker scale
-    marker.scale.x = 0.3  # Radius of the spheres
-    marker.scale.y = 0.3
-    marker.scale.z = 0.3
+    marker.scale.x = R  # Radius of the spheres
+    marker.scale.y = R
+    marker.scale.z = R
     
     # Set marker color (RGBA)
     marker.color.r = 0.0
