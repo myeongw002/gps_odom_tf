@@ -12,7 +12,8 @@ def read_file_and_publish():
     marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
     
     # Load file
-    file_path = "/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path_sample.txt"  # Update this path to your file
+    file_path = rospy.get_param("~file_path", "/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path.txt")  # Update this path to your file
+    R = rospy.get_param("~R", 0.5)
     points = []
 
     try:
