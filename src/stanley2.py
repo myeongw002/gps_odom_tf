@@ -12,8 +12,8 @@ class StanleyController:
         self.path_file = rospy.get_param("~path", '/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path.txt')
         self.K = rospy.get_param("~K", 0.1)
         self.L = rospy.get_param("~L", 1.04)
-        self.max_steering = rospy.get_param("~max_steering", 28.5)
-        self.max_steering = max_steering=np.radians(self.max_steering)
+        self.max_steering = float(rospy.get_param("~max_steering", 28.5))
+        self.max_steering = np.radians(self.max_steering)
 
 
         # Load path data (ref_xs, ref_ys, ref_yaws)
@@ -71,8 +71,10 @@ class StanleyController:
         cte_term = np.arctan2(self.K * cte, v)
 
         steer = yaw_error + cte_term
+        print(steer)
+        print(self.max_steering)
         steer = np.clip(steer, -self.max_steering, self.max_steering)
-        
+        print(steer)
         # 디버깅을 위한 로그 추가 (경로 인덱스 포함)
         print("----------------")
         rospy.loginfo(f"Path Index: {min_index}")
@@ -105,7 +107,7 @@ class StanleyControllerNode:
         
         # Subscriber for odometry
         rospy.Subscriber('/localization', Odometry, self.odometry_callback)
-        rospy.Subscriber('/erp42_state', ERP_STATUS, self.status_callback)
+        rospy.Subscriber('/erp42_status', ERP_STATUS, self.status_callback)
         
         # Control rate
         self.rate = rospy.Rate(20)  # 10 Hz
