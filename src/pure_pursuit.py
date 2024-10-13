@@ -23,7 +23,7 @@ class PurePursuitController:
         ref_ys = data[:, 1]
         return ref_xs, ref_ys
 
-    def compute_steering(self, rear_x, rear_y, yaw, v):
+    def compute_steering(self, rear_x, rear_y, yaw, v, ld):
         # Find the closest point on the path
         min_dist = float('inf')
         min_index = 0
@@ -43,7 +43,7 @@ class PurePursuitController:
             dx = self.ref_xs[i] - rear_x
             dy = self.ref_ys[i] - rear_y
             dist = np.sqrt(dx**2 + dy**2)
-            if dist >= self.Ld:
+            if dist >= ld:
                 lookahead_point = (self.ref_xs[i], self.ref_ys[i])
                 break
 
@@ -81,6 +81,9 @@ class PurePursuitControllerNode:
         self.front_y = 0.0
         self.yaw = 0.0
         self.v = 0.0
+        self.rear_x = 0.0
+        self.rear_y = 0.0
+        self.LD = 0
         self.max_speed = rospy.get_param("~max_speed", 18)
 
         # Publisher for control command
@@ -106,11 +109,12 @@ class PurePursuitControllerNode:
 
     def status_callback(self, msg: ERP_STATUS):
         self.v = msg.status_speed / 10
+        self.LD = self.v * 2
 
     def main(self):
         while not rospy.is_shutdown():
             # Compute the steering command using Pure Pursuit control
-            steer = self.controller.compute_steering(self.rear_x, self.rear_y, self.yaw, self.v)
+            steer = self.controller.compute_steering(self.rear_x, self.rear_y, self.yaw, self.v, self.LD)
             steer = -1 * np.rad2deg(steer)
             rospy.loginfo(f"Steering angle: {steer}")
 

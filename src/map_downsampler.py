@@ -18,7 +18,7 @@ output_path = os.path.join(file_dir, f"{file_base}_smaller{file_ext}")  # Create
 pcd = o3d.io.read_point_cloud(input_path)
 
 # Downsample the point cloud
-voxel_size = 0.8  # Define the voxel size for downsampling
+voxel_size = 0.1  # Define the voxel size for downsampling
 downsampled_pcd = pcd.voxel_down_sample(voxel_size)
 
 # Save the downsampled point cloud
