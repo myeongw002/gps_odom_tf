@@ -9,11 +9,11 @@ from erp42_serial2.msg import ERP_SET,ERP_STATUS
 class StanleyController:
     def __init__(self):
 
-        self.path_file = rospy.get_param("~path", '/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path_sample.txt')
-        self.K = rospy.get_param("~K", 0.5)
-        self.L = rospy.get_param("~L", 1.14)
-        self.max_steering = rospy.get_param("~K", 27)
-        self.max_steering = max_steering=np.radians(self.max_steering)
+        self.path_file = rospy.get_param("~path", '/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path.txt')
+        self.K = rospy.get_param("~K", 0.1)
+        self.L = rospy.get_param("~L", 1.04)
+        self.max_steering = float(rospy.get_param("~max_steering", 28.5))
+        self.max_steering = np.radians(self.max_steering)
 
 
         # Load path data (ref_xs, ref_ys, ref_yaws)
@@ -71,8 +71,10 @@ class StanleyController:
         cte_term = np.arctan2(self.K * cte, v)
 
         steer = yaw_error + cte_term
+        print(steer)
+        print(self.max_steering)
         steer = np.clip(steer, -self.max_steering, self.max_steering)
-        
+        print(steer)
         # 디버깅을 위한 로그 추가 (경로 인덱스 포함)
         print("----------------")
         rospy.loginfo(f"Path Index: {min_index}")
@@ -98,20 +100,18 @@ class StanleyControllerNode:
         self.x = 0.0
         self.y = 0.0
         self.yaw = 0.0
-        self.v = 2.0
-        self.max_speed = 3
+        self.v = 0.0
+        self.max_speed = rospy.get_param("~max_speed", 18)
         # Publisher for control command
-        self.steer_pub = rospy.Publisher('/steering_cmd', ERP_SET, queue_size=1)
+        self.steer_pub = rospy.Publisher('/erp42_set', ERP_SET, queue_size=1)
         
         # Subscriber for odometry
         rospy.Subscriber('/localization', Odometry, self.odometry_callback)
-        rospy.Subscriber('/erp_state', ERP_STATUS, self.status_callback)
+        rospy.Subscriber('/erp42_status', ERP_STATUS, self.status_callback)
         
         # Control rate
-        self.control_rate = rospy.Rate(10)  # 10 Hz
+        self.rate = rospy.Rate(20)  # 10 Hz
         
-        # Start the control loop
-        self.control_loop()
 
     def odometry_callback(self, msg:Odometry):
         # Update vehicle state from odometry message
@@ -123,10 +123,10 @@ class StanleyControllerNode:
 
 
     def status_callback(self, msg:ERP_STATUS):
-        self.v = msg.status_speed
+        self.v = msg.status_speed / 10
 
 
-    def control_loop(self):
+    def main(self):
         while not rospy.is_shutdown():
             # Compute the steering command using Stanley control
             steer = self.controller.compute_steering(self.x, self.y, self.yaw, self.v)
@@ -140,10 +140,12 @@ class StanleyControllerNode:
             self.steer_pub.publish(set_msg)
             
             # Wait for the next iteration
-            self.control_rate.sleep()
+            self.rate.sleep()
 
 if __name__ == '__main__':
     try:
-        StanleyControllerNode()
+        stanley = StanleyControllerNode()
+        stanley.main()
+        
     except rospy.ROSInterruptException:
         pass

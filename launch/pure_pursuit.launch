@@ -1,0 +1,18 @@
+<launch>
+  
+  <!--Nodes-->  
+  <node pkg="gps_odom_tf" type="pure_pursuit.py" name="pure_pursuit_control_node" output="screen"  >
+    <param name="path" value="$(find gps_odom_tf)/path/path.txt"/>
+    <param name="LD" value="2.0"/>
+    <param name="L" value="1.04"/>
+    <param name="max_steering" value="28.5"/>
+    <param name="max_speed" value="2"/>
+  </node> 
+  
+  <node pkg="gps_odom_tf" type="path_viz.py" name="path_visualize_node" output="screen">
+    <param name="file_path" value="$(find gps_odom_tf)/path/path.txt"/>
+    <param name="R" value="0.5"/>
+  </node>
+   
+  
+</launch>

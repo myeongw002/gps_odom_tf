@@ -12,7 +12,8 @@ def read_file_and_publish():
     marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
     
     # Load file
-    file_path = "/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path_sample.txt"  # Update this path to your file
+    file_path = rospy.get_param("~file_path", "/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path.txt")  # Update this path to your file
+    R = rospy.get_param("~R", 0.5)
     points = []
 
     try:
@@ -53,9 +54,9 @@ def read_file_and_publish():
     marker.pose.orientation.w = 1.0
     
     # Set marker scale
-    marker.scale.x = 0.3  # Radius of the spheres
-    marker.scale.y = 0.3
-    marker.scale.z = 0.3
+    marker.scale.x = R  # Radius of the spheres
+    marker.scale.y = R
+    marker.scale.z = R
     
     # Set marker color (RGBA)
     marker.color.r = 0.0
