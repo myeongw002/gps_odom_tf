@@ -1,8 +1,10 @@
 <launch>
-  
+
+<arg name="path" default="$(find gps_odom_tf)/path/highway_path.txt"
+
   <!--Nodes-->  
   <node pkg="gps_odom_tf" type="stanley2.py" name="stanley_control_node" output="screen"  >
-    <param name="path" value="$(find gps_odom_tf)/path/highway.txt"/>
+    <param name="path" value="$(arg path)"/>
     <param name="K" value="0.9"/>
     <param name="L" value="1.04"/>
     <param name="max_steering" value="28.5"/>
