@@ -38,7 +38,7 @@ class GPSOdometryMarker:
         rospy.Subscriber("/ublox_gps/fix", NavSatFix, self.gps_callback)
         
         # Marker 데이터를 RViz로 publish하기 위한 publisher 설정
-        self.marker_pub = rospy.Publisher("/gps_marker", Marker, queue_size=10)
+        self.marker_pub = rospy.Publisher("/gps_marker", Marker, queue_size=11)
         
         # Marker ID를 설정 (각기 다른 마커를 구분하기 위한 ID)
         self.marker_id = 0
@@ -70,15 +70,15 @@ class GPSOdometryMarker:
         marker.action = Marker.ADD
         
         # 마커의 크기 설정
-        marker.scale.x = 0.5
-        marker.scale.y = 0.5
-        marker.scale.z = 0.5
+        marker.scale.x = 1.5
+        marker.scale.y = 1.5
+        marker.scale.z = 1.5
         
         # 마커의 색상 설정 (파란색)
         marker.color.a = 1.0
         marker.color.r = 0.0
-        marker.color.g = 0.0
-        marker.color.b = 1.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
         
         # 변환된 좌표를 마커의 위치로 설정
         marker.pose.position.x = odometry_coords[0]
@@ -89,12 +89,12 @@ class GPSOdometryMarker:
         self.marker_pub.publish(marker)
         
         # 마커 ID를 증가시켜 다음 마커를 구분
-        self.marker_id  = (self.marker_id + 1) % 10
-
+        self.marker_id  = 1
+        
 if __name__ == "__main__":
     try:
         # 변환 파라미터 파일 경로 설정
-        transform_params_path = rospy.get_param("~transform_params_path", "/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/tf_matrix/transform_data.txt")
+        transform_params_path = rospy.get_param("~transform_params_path", "/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/tf_data/transform_data_highway.txt")
         
         # GPS Odometry Marker 노드 실행
         gps_marker_node = GPSOdometryMarker(transform_params_path)

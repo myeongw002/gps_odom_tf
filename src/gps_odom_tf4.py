@@ -50,17 +50,32 @@ def rotate_points(points, angle, center):
     ])
     return np.dot(points - center, rotation_matrix.T) + center
 
-def find_optimal_rotation(gps_coords, odom_coords, gps_centroid):
-    min_rmse = float('inf')
-    best_angle = 0
-    angles = np.arange(0, 360, 0.01)  # Test angles from 0 to 360 degrees
+def find_optimal_rotation(gps_coords, odom_coords, gps_centroid, step=0.01):
+    rmse_values = []
+    angles = np.arange(0, 360, step)  # Reduced resolution for plotting purposes
 
     for angle in angles:
         rotated_gps = rotate_points(gps_coords, angle, gps_centroid)
         rmse = calculate_rmse(rotated_gps, odom_coords)
-        if rmse < min_rmse:
-            min_rmse = rmse
-            best_angle = angle
+        rmse_values.append((angle, rmse))
+
+    angles, rmses = zip(*rmse_values)
+   
+    # Find the angle with the minimum RMSE
+    min_rmse = min(rmses)
+    best_angle = angles[rmses.index(min_rmse)]
+
+    print("RMSE values calculated")
+    print(f"Best angle (degrees): {best_angle}, Minimum RMSE: {min_rmse}")
+    # Plot RMSE against angles
+    
+    plt.plot(angles, rmses)
+    plt.xlabel('Rotation Angle (degrees)')
+    plt.ylabel('RMSE')
+    plt.title('RMSE vs Rotation Angle')
+    plt.grid(True)
+    plt.show()
+
 
     return best_angle, min_rmse
 
@@ -90,8 +105,8 @@ def main():
 
     # Paths to your data files
     input_csv = '/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/path/gps_path/2024-10-19-10-28-57-ublox_gps-fix.csv'
-    highway_txt = '/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/path/highway_path.txt'
-    output_file_path = '/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/tf_matrix/transform_data.txt'
+    highway_txt = '/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/path/highway_path5.txt'
+    output_file_path = '/home/teammiracle/ROS/catkin_ws/src/gps_odom_tf/tf_data/transform_data4.txt'
 
     # Read and preprocess data
     gps_coords = convert_and_offset_gps_to_utm(input_csv)
@@ -100,10 +115,10 @@ def main():
     # Find centroids
     gps_centroid = find_centroid(gps_coords)
     odom_centroid = find_centroid(odom_coords)
-
+    print(f"GPS Centroid: {gps_centroid}, Odometry Centroid: {odom_centroid}")
     # Calculate translation vector
     translation_vector = odom_centroid - gps_centroid
-
+    print(f"Translation Vector: {translation_vector}")
     # Translate GPS coordinates
     gps_translated = gps_coords + translation_vector
 
@@ -115,6 +130,7 @@ def main():
 
     # Find the optimal rotation that minimizes RMSE
     gps_centroid_translated = find_centroid(gps_translated)
+    print("Calculating roatation")
     best_angle, min_rmse = find_optimal_rotation(gps_translated, odom_coords, gps_centroid_translated)
     print(f"Best angle (degrees): {best_angle}, Minimum RMSE: {min_rmse}")
 
@@ -126,6 +142,9 @@ def main():
 
     # Save the translation vector, GPS centroid, and best angle to one file
     save_to_file(translation_vector, gps_centroid_translated, best_angle, output_file_path)
+    print("Transformation completed successfully!")
+    print("Translation Vector: ", translation_vector)
+    print("Rotation Angle: ", best_angle)
 
 if __name__ == "__main__":
     main()

@@ -9,7 +9,7 @@ def read_file_and_publish():
     rospy.init_node('textfile_to_rviz_markers', anonymous=True)
     
     # Publisher for markers
-    marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
+    marker_pub = rospy.Publisher('/path_marker', Marker, queue_size=10)
     
     # Load file
     file_path = rospy.get_param("~file_path", "/home/team-miracle/ROS/catkin_ws/src/gps_odom_tf/path/path.txt")  # Update this path to your file
