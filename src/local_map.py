@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
+
 import rospy
 from sensor_msgs.msg import PointCloud2
+from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
 import sensor_msgs.point_cloud2 as pc2
@@ -10,7 +13,7 @@ import tf
 from sklearn.cluster import DBSCAN
 import heapq
 from scipy.interpolate import splprep, splev
-
+from visualization_msgs.msg import Marker
 
 def interpolate_path(path, smooth_factor=2.0, num_points=100):
     """
@@ -60,7 +63,8 @@ class CloudProcessor:
         self.pointcloud_subscriber = rospy.Subscriber('/velodyne_points', PointCloud2, self.callback)
         self.odometry_subscriber = rospy.Subscriber('/localization', Odometry, self.odometry_callback)
         self.block_pub = rospy.Publisher('/path_blocked', Bool, queue_size=1)
-        
+        self.path_marker_pub = rospy.Publisher('/global_a_star_path_marker', Marker, queue_size=1)
+
         self.latest_points = None  # To store the latest point cloud data
 
         # ROI and other parameters
@@ -225,25 +229,69 @@ class CloudProcessor:
 
     def calculate_min_distance_to_clusters(self, clusters):
         """
-        Calculate the minimum distance from a start point to the nearest cluster center.
+        Calculate the minimum distance and angle from the robot's current position to the nearest cluster.
         
         Parameters:
-        - start_point (tuple or np.ndarray): The starting point (x, y).
         - clusters (dict): Dictionary of clusters with each key as a label and value as a list of points in that cluster.
         
         Returns:
-        - float: The minimum distance to the nearest cluster center.
+        - (float, float): The minimum distance to the nearest cluster and the angle in degrees between the robot's heading and the direction to the cluster.
         """
         min_distance = float('inf')
-        start_point = np.array(start_point)
-        
+        min_angle = 0.0
+
+        # Ensure the current pose is available
+        if self.current_pose is None:
+            return min_distance, min_angle
+
+        x_r, y_r, yaw = self.current_pose  # Extract robot's position and orientation (yaw)
+
         for cluster_points in clusters.values():
+            # Calculate the center of the cluster
             cluster_center = np.mean(cluster_points, axis=0)
-            distance_to_cluster = np.linalg.norm(cluster_center)
+            
+            # Calculate distance to cluster center
+            dx = cluster_center[0] - x_r
+            dy = cluster_center[1] - y_r
+            distance_to_cluster = np.sqrt(dx**2 + dy**2)
+
+            # Calculate the angle to the cluster center relative to the robot's yaw
+            angle_to_cluster = np.degrees(np.arctan2(dy, dx)) - np.degrees(yaw)
+            
+            # Normalize the angle to [-180, 180] degrees
+            angle_to_cluster = (angle_to_cluster + 180) % 360 - 180
+
+            # Check if this cluster is the closest
             if distance_to_cluster < min_distance:
                 min_distance = distance_to_cluster
-                
-        return min_distance
+                min_angle = angle_to_cluster
+
+        return min_distance, min_angle
+
+
+
+    def find_nearest_index(self, path, position):
+        """
+        Find the index of the nearest point on a given path to the current position.
+
+        Parameters:
+        - path (np.ndarray): Array of shape (N, 2) representing path points (x, y).
+        - position (tuple): The current position (x, y) of the robot.
+
+        Returns:
+        - int: Index of the nearest point on the path to the robot's position.
+        """
+        min_dist = float('inf')
+        nearest_index = 0
+        x_r, y_r = position  # Extract robot's position
+
+        for i, (x_p, y_p) in enumerate(path):
+            dist = np.sqrt((x_r - x_p) ** 2 + (y_r - y_p) ** 2)
+            if dist < min_dist:
+                min_dist = dist
+                nearest_index = i
+
+        return nearest_index
 
     def update_plot(self):
         """Update the matplotlib plot with the latest point cloud data and local path."""
@@ -299,11 +347,6 @@ class CloudProcessor:
 
                     if self.global_a_star_path is None and n_clusters >= 2:
                     # A* 경로 생성
-                        min_distance = self.calculate_min_distance_to_clusters(points_2d_clusters)
-                        if min_distance < 5:
-                            self.block_pub.publish(Bool(data=True))
-                            rospy.loginfo("Path blocked by the nearest cluster.")
-                        rospy.loginfo(f"Distance to the nearest cluster: {min_distance}")
             
                         a_star_path = self.generate_path_with_astar(start, goal, points_2d_clusters)
                         if a_star_path:
@@ -324,13 +367,41 @@ class CloudProcessor:
                                 # numpy 배열로 변환하여 global_path 업데이트
                                 global_a_star_path = np.array(global_a_star_path)
                                 self.global_a_star_path = interpolate_path(global_a_star_path)
+                                # Create a Marker message for the global A* path
+                                marker = Marker()
+                                marker.header.frame_id = "map"  # Or use the appropriate frame
+                                marker.header.stamp = rospy.Time.now()
+                                marker.ns = "global_a_star_path"
+                                marker.id = 0
+                                marker.type = Marker.LINE_STRIP
+                                marker.action = Marker.ADD
+                                marker.pose.orientation.w = 1.0
+
+                                # Set marker properties
+                                marker.scale.x = 0.1  # Line width
+                                marker.color.r = 1.0
+                                marker.color.g = 0.0
+                                marker.color.b = 1.0
+                                marker.color.a = 1.0
+
+                                # Add points to the marker from global_a_star_path
+                                marker.points = []
+                                for x, y in self.global_a_star_path:
+                                    point = Point()
+                                    point.x = x
+                                    point.y = y
+                                    point.z = 0  # Set Z if needed
+                                    marker.points.append(point)
+
+                                # Publish the marker
+                                self.path_marker_pub.publish(marker)
                             else:
                                 print("Odometry data not available for transformation.")
 
                     elif n_clusters >= 1:
                         # Calculate distance to the nearest cluster
-                        min_distance = self.calculate_min_distance_to_clusters(points_2d_clusters)
-                        if min_distance < 5:
+                        min_distance, min_angle = self.calculate_min_distance_to_clusters(points_2d_clusters)
+                        if min_distance <= 5 and abs(min_angle) <= 10:
                             self.block_pub.publish(Bool(data=True))
                             rospy.loginfo("Path blocked by the nearest cluster.")
                         rospy.loginfo(f"Distance to the nearest cluster: {min_distance}")
@@ -338,9 +409,10 @@ class CloudProcessor:
                     else:
                         self.block_pub.publish(Bool(data=False))
                         rospy.loginfo("Path is clear.")
-
-                    #rospy.loginfo(f"Global A* Path: {self.global_a_star_path}") 
-
+                    
+                    if self.global_a_star_path is not None:
+                        rospy.loginfo(f"Global A* Path: {self.global_a_star_path}")
+                        
             self.ax.legend()
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
